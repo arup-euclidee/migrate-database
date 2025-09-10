@@ -1,0 +1,33 @@
+{
+  "name": "pg-migration-tool",
+  "version": "1.0.0",
+  "main": "index.js",
+  "bin": {
+    "pg-migrate": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node src/index.ts",
+    "prepublishOnly": "npm run build",
+    "test": "npm run build && node test.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "commander": "^14.0.0",
+    "dotenv": "^17.2.2",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.15.5",
+    "jest": "^30.1.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.2"
+  }
+}
