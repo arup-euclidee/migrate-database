@@ -53,20 +53,11 @@ class FileUtils {
     static fileExists(filePath) {
         return fs.existsSync(filePath);
     }
-    static getLatestMigrationVersion(migrationsDir) {
-        if (!fs.existsSync(migrationsDir)) {
-            return 0;
+    static getFilesInDirectory(dirPath) {
+        if (!fs.existsSync(dirPath)) {
+            return [];
         }
-        const files = fs.readdirSync(migrationsDir);
-        const migrationFiles = files.filter(f => f.endsWith('.sql'));
-        if (migrationFiles.length === 0) {
-            return 0;
-        }
-        const versions = migrationFiles.map(f => {
-            const match = f.match(/^(\d+)_.+\.sql$/);
-            return match ? parseInt(match[1]) : 0;
-        });
-        return Math.max(...versions);
+        return fs.readdirSync(dirPath);
     }
 }
 exports.FileUtils = FileUtils;

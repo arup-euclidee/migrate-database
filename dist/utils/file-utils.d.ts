@@ -3,5 +3,5 @@ export declare class FileUtils {
     static writeFile(filePath: string, content: string): void;
     static readFile(filePath: string): string;
     static fileExists(filePath: string): boolean;
-    static getLatestMigrationVersion(migrationsDir: string): number;
+    static getFilesInDirectory(dirPath: string): string[];
 }

@@ -48,12 +48,12 @@ program
 program
     .command('generate')
     .description('Generate migration SQL from schema file')
-    .option('-s, --schema <path>', 'Path to schema file (default: auto-detect)')
+    .option('-s, --schema <path>', 'Path to schema file (default: auto-detect)', schema_types_1.DEFAULT_SCHEMA_FILE)
     .option('-o, --output <path>', 'Output directory for migrations', schema_types_1.DEFAULT_MIGRATIONS_DIR)
-    .option('--schema-dir <path>', 'Directory to store schema versions', schema_types_1.DEFAULT_SCHEMA_DIR)
+    .option('-r, --reference <path>', 'Path to reference schema file', schema_types_1.DEFAULT_REFERENCE_SCHEMA)
     .action(async (options) => {
     try {
-        await generateMigration(options.schema, options.output, options.schemaDir);
+        await generateMigration(options.schema, options.output, options.reference);
         console.log('Migration generated successfully!');
     }
     catch (error) {
@@ -67,35 +67,90 @@ program
         process.exit(1);
     }
 });
-async function generateMigration(schemaPath, outputDir, schemaDir) {
-    // Auto-detect schema file if not provided
-    const actualSchemaPath = schemaPath || await schema_parser_1.SchemaParser.findSchemaFile();
+program
+    .command('init')
+    .description('Initialize a new schema.ts file')
+    .action(() => {
+    initSchemaFile();
+});
+async function generateMigration(schemaPath, outputDir, referencePath) {
+    // Auto-detect schema file if default path doesn't exist
+    let actualSchemaPath = schemaPath;
+    if (schemaPath === schema_types_1.DEFAULT_SCHEMA_FILE && !file_utils_1.FileUtils.fileExists(schemaPath)) {
+        try {
+            actualSchemaPath = await schema_parser_1.SchemaParser.findSchemaFile();
+        }
+        catch {
+            // Use default path if auto-detection fails
+            actualSchemaPath = schema_types_1.DEFAULT_SCHEMA_FILE;
+        }
+    }
     console.log(`Using schema file: ${actualSchemaPath}`);
     // Parse current schema
     const currentSchema = await schema_parser_1.SchemaParser.parseSchemaFile(actualSchemaPath);
     // Ensure directories exist
     file_utils_1.FileUtils.ensureDirectoryExists(outputDir);
-    file_utils_1.FileUtils.ensureDirectoryExists(schemaDir);
-    // Get previous schema
-    const previousSchema = schema_parser_1.SchemaParser.getPreviousSchema(schemaDir, currentSchema.version);
+    // Get reference schema (previous version)
+    const previousSchema = schema_parser_1.SchemaParser.getReferenceSchema(referencePath);
     if (previousSchema) {
-        console.log(`Found previous schema version: ${previousSchema.version}`);
+        console.log('Found reference schema - comparing changes');
     }
     else {
-        console.log('No previous schema found - generating initial migration');
+        console.log('No reference schema found - generating initial migration');
     }
     // Generate migration SQL
     const sql = migration_generator_1.MigrationGenerator.generateMigrationSQL(currentSchema, previousSchema);
-    // Generate migration filename
+    // Generate migration filename with timestamp
     const timestamp = new Date().toISOString().replace(/[:.-]/g, '_');
-    const migrationName = `migration_${timestamp}`;
-    const migrationFile = path.join(outputDir, `${currentSchema.version}_${migrationName}.sql`);
+    const migrationFile = path.join(outputDir, `migration_${timestamp}.sql`);
     // Save migration file
     file_utils_1.FileUtils.writeFile(migrationFile, sql);
-    // Save current schema as reference
-    const schemaFile = path.join(schemaDir, `schema_v${currentSchema.version}.json`);
-    schema_parser_1.SchemaParser.saveSchema(currentSchema, schemaFile);
+    // Save current schema as reference for future comparisons
+    schema_parser_1.SchemaParser.saveSchema(currentSchema, referencePath);
     console.log(`Migration saved to: ${migrationFile}`);
-    console.log(`Schema version ${currentSchema.version} saved to: ${schemaFile}`);
+    console.log(`Reference schema saved to: ${referencePath}`);
+}
+function initSchemaFile() {
+    const schemaContent = `// schema.ts - Database schema definition
+const schema = {
+  tables: [
+    {
+      name: 'users',
+      columns: [
+        {
+          name: 'id',
+          type: 'SERIAL',
+          primaryKey: true
+        },
+        {
+          name: 'email',
+          type: 'VARCHAR(255)',
+          unique: true,
+          nullable: false
+        },
+        {
+          name: 'name',
+          type: 'VARCHAR(255)',
+          nullable: false
+        },
+        {
+          name: 'created_at',
+          type: 'TIMESTAMP',
+          nullable: false,
+          defaultValue: 'NOW()'
+        }
+      ]
+    }
+  ]
+};
+
+export default schema;
+`;
+    if (file_utils_1.FileUtils.fileExists(schema_types_1.DEFAULT_SCHEMA_FILE)) {
+        console.log('schema.ts already exists');
+        return;
+    }
+    file_utils_1.FileUtils.writeFile(schema_types_1.DEFAULT_SCHEMA_FILE, schemaContent);
+    console.log('Created schema.ts file');
 }
 program.parse(process.argv);

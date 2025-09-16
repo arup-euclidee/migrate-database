@@ -11,29 +11,16 @@ export class SchemaParser {
       throw new Error(`Schema file not found: ${absolutePath}`);
     }
 
-    // For TypeScript files, we need to compile and import them
     if (filePath.endsWith('.ts')) {
       return await this.parseTypeScriptSchema(absolutePath);
     }
-    
-    // For JSON files (backward compatibility)
-    if (filePath.endsWith('.json')) {
-      const schemaContent = fs.readFileSync(absolutePath, 'utf-8');
-      const schemaObject = JSON.parse(schemaContent);
-      
-      return {
-        tables: schemaObject.tables || [],
-        version: schemaObject.version || 1,
-        timestamp: new Date().toISOString()
-      };
-    }
 
-    throw new Error('Unsupported schema file format. Use .ts or .json files.');
+    throw new Error('Unsupported schema file format. Use .ts files.');
   }
 
   private static async parseTypeScriptSchema(filePath: string): Promise<SchemaDefinition> {
     try {
-      // First, try to compile the TypeScript file to JavaScript
+      // Compile TypeScript to JavaScript temporarily
       const compiledPath = await this.compileTypeScriptSchema(filePath);
       
       // Import the compiled JavaScript
@@ -47,20 +34,17 @@ export class SchemaParser {
       // The schema should be the default export
       const schemaObject = schemaModule.default || schemaModule;
       
+      if (!schemaObject || typeof schemaObject !== 'object') {
+        throw new Error('Schema file must export a default object');
+      }
+      
       return {
         tables: schemaObject.tables || [],
-        version: schemaObject.version || 1,
         timestamp: new Date().toISOString()
       };
     } catch (error) {
-      // Fallback: try to parse the TypeScript file as text
-      try {
-        return await this.parseTypeScriptAsText(filePath);
-      } catch (fallbackError) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-        const fallbackErrorMessage = fallbackError instanceof Error ? fallbackError.message : 'Unknown fallback error';
-        throw new Error(`Failed to parse TypeScript schema: ${errorMessage}. Fallback also failed: ${fallbackErrorMessage}`);
-      }
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      throw new Error(`Failed to parse TypeScript schema: ${errorMessage}`);
     }
   }
 
@@ -68,7 +52,18 @@ export class SchemaParser {
     const outputPath = filePath.replace('.ts', '.temp.js');
     
     // Use TypeScript compiler to compile the single file
-    const result = spawnSync('npx', ['tsc', filePath, '--outFile', outputPath, '--target', 'ES2020', '--module', 'CommonJS'], {
+    const result = spawnSync('npx', [
+      'tsc', 
+      filePath, 
+      '--outFile', 
+      outputPath, 
+      '--target', 
+      'ES2020', 
+      '--module', 
+      'CommonJS',
+      '--esModuleInterop',
+      '--skipLibCheck'
+    ], {
       stdio: 'pipe'
     });
 
@@ -77,29 +72,6 @@ export class SchemaParser {
     }
 
     return outputPath;
-  }
-
-  private static async parseTypeScriptAsText(filePath: string): Promise<SchemaDefinition> {
-    const content = fs.readFileSync(filePath, 'utf-8');
-    
-    // Simple regex to extract the schema object (this is a fallback)
-    const schemaMatch = content.match(/const schema = (\{[\s\S]*?\});/);
-    if (!schemaMatch) {
-      throw new Error('Could not find schema object in TypeScript file');
-    }
-
-    try {
-      // Use eval to parse the object (be careful with this in production!)
-      const schemaObject = eval(`(${schemaMatch[1]})`);
-      
-      return {
-        tables: schemaObject.tables || [],
-        version: schemaObject.version || 1,
-        timestamp: new Date().toISOString()
-      };
-    } catch (error) {
-      throw new Error('Failed to parse schema object from TypeScript file');
-    }
   }
 
   static saveSchema(schema: SchemaDefinition, filePath: string): void {
@@ -111,36 +83,30 @@ export class SchemaParser {
     fs.writeFileSync(filePath, JSON.stringify(schema, null, 2));
   }
 
-  static getPreviousSchema(schemaDir: string, version: number): SchemaDefinition | null {
-    const previousVersion = version - 1;
-    const previousSchemaPath = path.join(schemaDir, `schema_v${previousVersion}.json`);
+  static getReferenceSchema(referencePath: string): SchemaDefinition | null {
+    const absolutePath = path.resolve(referencePath);
     
-    if (fs.existsSync(previousSchemaPath)) {
-      try {
-        const schemaContent = fs.readFileSync(previousSchemaPath, 'utf-8');
-        return JSON.parse(schemaContent);
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-        console.warn(`Failed to parse previous schema: ${errorMessage}`);
-        return null;
-      }
+    if (!fs.existsSync(absolutePath)) {
+      return null;
     }
-    
-    return null;
+
+    try {
+      const schemaContent = fs.readFileSync(absolutePath, 'utf-8');
+      return JSON.parse(schemaContent);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      console.warn(`Failed to parse reference schema: ${errorMessage}`);
+      return null;
+    }
   }
 
   static async findSchemaFile(): Promise<string> {
     const possiblePaths = [
       './schema.ts',
       './src/schema.ts',
-      './schemas/schema.ts',
+      './prisma/schema.ts',
       './database/schema.ts',
-      './db/schema.ts',
-      './schema.json',
-      './src/schema.json',
-      './schemas/schema.json',
-      './database/schema.json',
-      './db/schema.json'
+      './db/schema.ts'
     ];
 
     for (const filePath of possiblePaths) {

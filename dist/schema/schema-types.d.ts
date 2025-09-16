@@ -21,7 +21,6 @@ export interface TableDefinition {
 }
 export interface SchemaDefinition {
     tables: TableDefinition[];
-    version: number;
     timestamp: string;
 }
 export interface MigrationStep {
@@ -30,6 +29,6 @@ export interface MigrationStep {
     column?: string;
     definition?: any;
 }
-export declare const DEFAULT_SCHEMA_FILE = "./schema.ts";
-export declare const DEFAULT_MIGRATIONS_DIR = "./migrations";
-export declare const DEFAULT_SCHEMA_DIR = "./schemas";
+export declare const DEFAULT_SCHEMA_FILE = "./pg-migrate/schema.ts";
+export declare const DEFAULT_MIGRATIONS_DIR = "./pg-migrate/migrations";
+export declare const DEFAULT_REFERENCE_SCHEMA = "./.schema-reference.json";

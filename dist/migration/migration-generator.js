@@ -3,21 +3,30 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.MigrationGenerator = void 0;
 class MigrationGenerator {
     static generateMigrationSQL(currentSchema, previousSchema) {
-        let sql = '-- Generated migration SQL\n\n';
+        let sql = '-- Generated migration SQL\n';
+        sql += `-- Generated at: ${new Date().toISOString()}\n\n`;
         if (!previousSchema) {
             // Initial migration - create all tables
             sql += this.generateCreateTablesSQL(currentSchema.tables);
+            sql += '\n-- Initial schema creation\n';
         }
         else {
             // Compare schemas and generate migration steps
             const steps = this.compareSchemas(previousSchema, currentSchema);
-            sql += this.generateStepsSQL(steps);
+            if (steps.length === 0) {
+                sql += '-- No changes detected\n';
+            }
+            else {
+                sql += this.generateStepsSQL(steps);
+                sql += `\n-- ${steps.length} change(s) applied\n`;
+            }
         }
         return sql;
     }
     static generateCreateTablesSQL(tables) {
         let sql = '';
         for (const table of tables) {
+            sql += `-- Create table: ${table.name}\n`;
             sql += `CREATE TABLE ${table.name} (\n`;
             const columnDefinitions = table.columns.map(col => {
                 let definition = `  ${col.name} ${col.type}`;
@@ -70,6 +79,9 @@ class MigrationGenerator {
             if (oldTable) {
                 const columnSteps = this.compareColumns(oldTable, newTable);
                 steps.push(...columnSteps);
+                // Compare indexes
+                const indexSteps = this.compareIndexes(oldTable, newTable);
+                steps.push(...indexSteps);
             }
         }
         return steps;
@@ -90,11 +102,29 @@ class MigrationGenerator {
                 steps.push({ type: 'drop_column', table: oldTable.name, column: columnName });
             }
         }
-        // Check for modified columns (simplified comparison)
+        // Check for modified columns
         for (const [columnName, newColumn] of newColumns) {
             const oldColumn = oldColumns.get(columnName);
             if (oldColumn && JSON.stringify(oldColumn) !== JSON.stringify(newColumn)) {
                 steps.push({ type: 'modify_column', table: oldTable.name, column: columnName, definition: newColumn });
+            }
+        }
+        return steps;
+    }
+    static compareIndexes(oldTable, newTable) {
+        const steps = [];
+        const oldIndexes = new Map(oldTable.indexes?.map(i => [i.name, i]) || []);
+        const newIndexes = new Map(newTable.indexes?.map(i => [i.name, i]) || []);
+        // Check for new indexes
+        for (const [indexName, newIndex] of newIndexes) {
+            if (!oldIndexes.has(indexName)) {
+                steps.push({ type: 'add_index', table: oldTable.name, definition: newIndex });
+            }
+        }
+        // Check for dropped indexes
+        for (const [indexName, oldIndex] of oldIndexes) {
+            if (!newIndexes.has(indexName)) {
+                steps.push({ type: 'drop_index', table: oldTable.name, definition: oldIndex });
             }
         }
         return steps;
@@ -104,19 +134,32 @@ class MigrationGenerator {
         for (const step of steps) {
             switch (step.type) {
                 case 'create_table':
+                    sql += `-- Create new table: ${step.table}\n`;
                     sql += this.generateCreateTableSQL(step.definition);
                     break;
                 case 'drop_table':
+                    sql += `-- Drop table: ${step.table}\n`;
                     sql += `DROP TABLE IF EXISTS ${step.table} CASCADE;\n`;
                     break;
                 case 'add_column':
+                    sql += `-- Add column: ${step.column} to table: ${step.table}\n`;
                     sql += this.generateAddColumnSQL(step.table, step.definition);
                     break;
                 case 'drop_column':
+                    sql += `-- Drop column: ${step.column} from table: ${step.table}\n`;
                     sql += `ALTER TABLE ${step.table} DROP COLUMN IF EXISTS ${step.column};\n`;
                     break;
                 case 'modify_column':
+                    sql += `-- Modify column: ${step.column} in table: ${step.table}\n`;
                     sql += this.generateModifyColumnSQL(step.table, step.definition);
+                    break;
+                case 'add_index':
+                    sql += `-- Add index: ${step.definition.name} to table: ${step.table}\n`;
+                    sql += this.generateAddIndexSQL(step.table, step.definition);
+                    break;
+                case 'drop_index':
+                    sql += `-- Drop index: ${step.definition.name} from table: ${step.table}\n`;
+                    sql += `DROP INDEX IF EXISTS ${step.definition.name};\n`;
                     break;
             }
             sql += '\n';
@@ -147,6 +190,10 @@ class MigrationGenerator {
         sql += `ALTER TABLE ${table} DROP COLUMN IF EXISTS ${column.name};\n`;
         sql += this.generateAddColumnSQL(table, column);
         return sql;
+    }
+    static generateAddIndexSQL(table, index) {
+        const unique = index.unique ? 'UNIQUE ' : '';
+        return `CREATE ${unique}INDEX ${index.name} ON ${table} (${index.columns.join(', ')});`;
     }
     static formatDefaultValue(value) {
         if (typeof value === 'string') {
