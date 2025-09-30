@@ -36,64 +36,44 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SchemaParser = void 0;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
-const child_process_1 = require("child_process");
+const ts_node_1 = require("ts-node");
 class SchemaParser {
     static async parseSchemaFile(filePath) {
         const absolutePath = path.resolve(filePath);
         if (!fs.existsSync(absolutePath)) {
             throw new Error(`Schema file not found: ${absolutePath}`);
         }
-        if (filePath.endsWith('.ts')) {
-            return await this.parseTypeScriptSchema(absolutePath);
+        if (!filePath.endsWith(".ts")) {
+            throw new Error("Unsupported schema file format. Use .ts files.");
         }
-        throw new Error('Unsupported schema file format. Use .ts files.');
+        return await this.parseTypeScriptSchema(absolutePath);
     }
     static async parseTypeScriptSchema(filePath) {
         try {
-            // Compile TypeScript to JavaScript temporarily
-            const compiledPath = await this.compileTypeScriptSchema(filePath);
-            // Import the compiled JavaScript
-            const schemaModule = await Promise.resolve(`${compiledPath}`).then(s => __importStar(require(s)));
-            // Clean up the compiled file
-            if (fs.existsSync(compiledPath)) {
-                fs.unlinkSync(compiledPath);
-            }
-            // The schema should be the default export
+            // Register ts-node so we can import .ts files
+            (0, ts_node_1.register)({
+                transpileOnly: true, // skip type-checking, faster
+                compilerOptions: {
+                    module: "CommonJS",
+                    target: "ES2020",
+                    esModuleInterop: true,
+                },
+            });
+            // Import schema.ts dynamically
+            const schemaModule = await Promise.resolve(`${filePath}`).then(s => __importStar(require(s)));
             const schemaObject = schemaModule.default || schemaModule;
-            if (!schemaObject || typeof schemaObject !== 'object') {
-                throw new Error('Schema file must export a default object');
+            if (!schemaObject || typeof schemaObject !== "object") {
+                throw new Error("Schema file must export a default object");
             }
             return {
-                tables: schemaObject.tables || [],
-                timestamp: new Date().toISOString()
+                tables: schemaObject || [],
+                timestamp: new Date().toISOString(),
             };
         }
         catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
             throw new Error(`Failed to parse TypeScript schema: ${errorMessage}`);
         }
-    }
-    static async compileTypeScriptSchema(filePath) {
-        const outputPath = filePath.replace('.ts', '.temp.js');
-        // Use TypeScript compiler to compile the single file
-        const result = (0, child_process_1.spawnSync)('npx', [
-            'tsc',
-            filePath,
-            '--outFile',
-            outputPath,
-            '--target',
-            'ES2020',
-            '--module',
-            'CommonJS',
-            '--esModuleInterop',
-            '--skipLibCheck'
-        ], {
-            stdio: 'pipe'
-        });
-        if (result.status !== 0) {
-            throw new Error(`TypeScript compilation failed: ${result.stderr.toString()}`);
-        }
-        return outputPath;
     }
     static saveSchema(schema, filePath) {
         const dir = path.dirname(filePath);
@@ -108,22 +88,19 @@ class SchemaParser {
             return null;
         }
         try {
-            const schemaContent = fs.readFileSync(absolutePath, 'utf-8');
+            const schemaContent = fs.readFileSync(absolutePath, "utf-8");
             return JSON.parse(schemaContent);
         }
         catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-            console.warn(`Failed to parse reference schema: ${errorMessage}`);
+            const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+            console.warn(`⚠️ Failed to parse reference schema: ${errorMessage}`);
             return null;
         }
     }
     static async findSchemaFile() {
         const possiblePaths = [
-            './schema.ts',
-            './src/schema.ts',
-            './prisma/schema.ts',
-            './database/schema.ts',
-            './db/schema.ts'
+            "./pg-migrate/schema.ts",
+            "./src/schema.ts"
         ];
         for (const filePath of possiblePaths) {
             const absolutePath = path.resolve(filePath);
@@ -131,7 +108,7 @@ class SchemaParser {
                 return absolutePath;
             }
         }
-        throw new Error('No schema file found. Please create a schema.ts file in the root directory.');
+        throw new Error("No schema file found. Please create a schema.ts file in the root directory.");
     }
 }
 exports.SchemaParser = SchemaParser;

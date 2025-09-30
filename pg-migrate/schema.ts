@@ -1,4 +1,3 @@
-// schema.ts - Database schema definition
 const schema = [
   {
     name: 'users',
@@ -55,10 +54,11 @@ const schema = [
     ],
     constraints: [
       { type: 'unique', name: 'uniq_post_category', columns: ['post_id', 'category_id'] }
-      // or use composite primary:
+      // If you want a composite primary key instead of unique, replace with:
       // { type: 'primary', name: 'pk_post_category', columns: ['post_id', 'category_id'] }
     ]
   }
 ]
 
-export default schema;
+
+export default schema

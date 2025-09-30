@@ -1,8 +1,7 @@
-import { SchemaDefinition } from './schema-types';
+import { SchemaDefinition } from "./schema-types";
 export declare class SchemaParser {
     static parseSchemaFile(filePath: string): Promise<SchemaDefinition>;
     private static parseTypeScriptSchema;
-    private static compileTypeScriptSchema;
     static saveSchema(schema: SchemaDefinition, filePath: string): void;
     static getReferenceSchema(referencePath: string): SchemaDefinition | null;
     static findSchemaFile(): Promise<string>;

@@ -29,6 +29,3 @@ export interface MigrationStep {
     column?: string;
     definition?: any;
 }
-export declare const DEFAULT_SCHEMA_FILE = "./pg-migrate/schema.ts";
-export declare const DEFAULT_MIGRATIONS_DIR = "./pg-migrate/migrations";
-export declare const DEFAULT_REFERENCE_SCHEMA = "./.schema-reference.json";
