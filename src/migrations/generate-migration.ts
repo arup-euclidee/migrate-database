@@ -42,21 +42,21 @@ export async function generateMigration(): Promise<{ success: boolean; message: 
         // Generate migration SQL
         const sql = MigrationGenerator.generateMigrationSQL(currentSchema, previousSchema);
 
-        // // Ensure migration folder exists
-        // const migrationDir = path.join(DEFAULT_SCHEMA_FOLDER_PATH, "migration");
-        // if (!fs.existsSync(migrationDir)) {
-        //     fs.mkdirSync(migrationDir, { recursive: true });
-        // }
+        // Ensure migration folder exists
+        const migrationDir = path.join(DEFAULT_SCHEMA_FOLDER_PATH, "migration");
+        if (!fs.existsSync(migrationDir)) {
+            fs.mkdirSync(migrationDir, { recursive: true });
+        }
 
-        // // Get next migration file number
-        // const nextMigrationNumber = getNextMigrationNumber();
-        // const migrationFile = path.join(migrationDir, `${nextMigrationNumber}_migration.sql`);
+        // Get next migration file number
+        const nextMigrationNumber = getNextMigrationNumber();
+        const migrationFile = path.join(migrationDir, `${nextMigrationNumber}_migration.sql`);
 
-        // try {
-        //     FileUtils.writeFile(migrationFile, sql);
-        // } catch (err: any) {
-        //     throw new Error(`Failed to write migration file: ${err.message}`);
-        // }
+        try {
+            FileUtils.writeFile(migrationFile, sql);
+        } catch (err: any) {
+            throw new Error(`Failed to write migration file: ${err.message}`);
+        }
 
         // Save snapshot of current schema for future comparisons
         try {

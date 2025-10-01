@@ -5,6 +5,7 @@ class MigrationGenerator {
     static generateMigrationSQL(currentSchema, previousSchema) {
         let sql = '-- Generated migration SQL\n';
         sql += `-- Generated at: ${new Date().toISOString()}\n\n`;
+        let relationsSql = '-- table relation\n';
         if (!previousSchema) {
             // Initial migration - create all tables
             // sql += this.generateCreateTablesSQL(currentSchema.tables);
@@ -12,79 +13,131 @@ class MigrationGenerator {
         }
         else {
             // Compare schemas and generate migration steps
-            const steps = this.compareSchemas(previousSchema, currentSchema);
-            // if (steps.length === 0) {
-            //     sql += '-- No changes detected\n';
-            // } else {
-            //     sql += this.generateStepsSQL(steps);
-            //     sql += `\n-- ${steps.length} change(s) applied\n`;
-            // }
-        }
-        return sql;
-    }
-    // private static generateCreateTablesSQL(tables: TableDefinition[]): string {
-    //     let sql = '';
-    //     for (const table of tables) {
-    //         sql += `-- Create table: ${table.name}\n`;
-    //         sql += `CREATE TABLE ${table.name} (\n`;
-    //         const columnDefinitions = table.columns.map(col => {
-    //             let definition = `  ${col.name} ${col.type}`;
-    //             if (!col.nullable) definition += ' NOT NULL';
-    //             if (col.primaryKey) definition += ' PRIMARY KEY';
-    //             if (col.unique) definition += ' UNIQUE';
-    //             if (col.defaultValue !== undefined) {
-    //                 definition += ` DEFAULT ${this.formatDefaultValue(col.defaultValue)}`;
-    //             }
-    //             if (col.references) {
-    //                 definition += ` REFERENCES ${col.references.table}(${col.references.column})`;
-    //             }
-    //             return definition;
-    //         });
-    //         sql += columnDefinitions.join(',\n');
-    //         sql += '\n);\n\n';
-    //         // Generate indexes
-    //         if (table.indexes) {
-    //             for (const index of table.indexes) {
-    //                 const unique = index.unique ? 'UNIQUE ' : '';
-    //                 sql += `CREATE ${unique}INDEX ${index.name} ON ${table.name} (${index.columns.join(', ')});\n`;
-    //             }
-    //             sql += '\n';
-    //         }
-    //     }
-    //     return sql;
-    // }
-    static compareSchemas(oldSchema, newSchema) {
-        const steps = [];
-        const oldTables = new Map(oldSchema.tables.map(t => [t.name, t]));
-        const newTables = new Map(newSchema.tables.map(t => [t.name, t]));
-        const oldTableList = [...new Set(oldSchema?.tables?.map(t => t?.name))];
-        const currentTableList = [...new Set(newSchema?.tables?.map(t => t?.name))];
-        console.log('oldTables', oldTableList);
-        console.log('newTables', currentTableList);
-        // Check for new tables
-        for (const [tableName, newTable] of newTables) {
-            if (!oldTables.has(tableName)) {
-                steps.push({ type: 'create_table', table: tableName, definition: newTable });
+            const record = this.compareSchemas(previousSchema, currentSchema);
+            // remove tables 
+            if (record?.removedTables?.length > 0) {
+                // Option 1: One DROP TABLE per table
+                record?.removedTables.forEach(t => {
+                    sql += `DROP TABLE IF EXISTS "${t}" CASCADE;\n`;
+                });
+            }
+            // create tables
+            if (record?.newTables?.length > 0) {
+                const { create_sql, create_relation_sql } = this.generateCreateTableSQL(record.newTables, currentSchema);
+                sql += create_sql;
+                relationsSql += create_relation_sql;
+            }
+            // existing tables
+            if (record?.existingCommonTables?.length > 0) {
             }
         }
-        // Check for dropped tables
-        // for (const [tableName, oldTable] of oldTables) {
-        //     if (!newTables.has(tableName)) {
-        //         steps.push({ type: 'drop_table', table: tableName });
-        //     }
-        // }
-        // Check for table modifications
-        // for (const [tableName, newTable] of newTables) {
-        //     const oldTable = oldTables.get(tableName);
-        //     if (oldTable) {
-        //         const columnSteps = this.compareColumns(oldTable, newTable);
-        //         steps.push(...columnSteps);
-        //         // Compare indexes
-        //         const indexSteps = this.compareIndexes(oldTable, newTable);
-        //         steps.push(...indexSteps);
-        //     }
-        // }
-        return steps;
+        sql += relationsSql;
+        return sql;
+    }
+    static compareSchemas(oldSchema, newSchema) {
+        const existingTables = [...new Set(oldSchema?.tables?.map(t => t?.name))];
+        const currentTables = [...new Set(newSchema?.tables?.map(t => t?.name))];
+        // Convert arrays to Set for fast lookup
+        const existingSet = new Set(existingTables);
+        const currentSet = new Set(currentTables);
+        // Removed: in existing but not in current
+        const removedTables = existingTables.filter(t => !currentSet.has(t)) || [];
+        // New: in current but not in existing
+        const newTables = currentTables.filter(t => !existingSet.has(t)) || [];
+        // Existing: in both
+        const existingCommonTables = existingTables.filter(t => currentSet.has(t)) || [];
+        return { removedTables, newTables, existingCommonTables };
+    }
+    static compareColumns(oldTable, newTable) {
+        const steps = [];
+        const oldColumns = new Map(oldTable.columns.map(c => [c.name, c]));
+        const newColumns = new Map(newTable.columns.map(c => [c.name, c]));
+        // Check for new columns
+        for (const [columnName, newColumn] of newColumns) {
+            if (!oldColumns.has(columnName)) {
+                steps.push({ type: 'add_column', table: oldTable.name, column: columnName, definition: newColumn });
+            }
+        }
+        // Check for dropped columns
+        for (const [columnName, oldColumn] of oldColumns) {
+            if (!newColumns.has(columnName)) {
+                steps.push({ type: 'drop_column', table: oldTable.name, column: columnName });
+            }
+        }
+        // Check for modified columns
+        for (const [columnName, newColumn] of newColumns) {
+            const oldColumn = oldColumns.get(columnName);
+            if (oldColumn && JSON.stringify(oldColumn) !== JSON.stringify(newColumn)) {
+                steps.push({ type: 'modify_column', table: oldTable.name, column: columnName, definition: newColumn });
+            }
+        }
+    }
+    static generateCreateTableSQL(tables, currentSchema) {
+        let create_sql = '';
+        let create_relation_sql = '';
+        const currentTables = new Map(currentSchema.tables.map(t => [t.name, t]));
+        for (const table of tables) {
+            const tableObj = currentTables.get(table) || { columns: [], indexes: [], relations: [] };
+            create_sql += `-- Create table: ${table}\n`;
+            create_sql += `CREATE TABLE ${table} (\n`;
+            const columnDefinitions = tableObj.columns.map(col => {
+                let definition = `  ${col.name} ${col.type}`;
+                if (!col.nullable)
+                    definition += ' NOT NULL';
+                if (col.primaryKey)
+                    definition += ' PRIMARY KEY';
+                if (col.unique)
+                    definition += ' UNIQUE';
+                if (col.defaultValue !== undefined) {
+                    if (col.defaultValue === 'NOW') {
+                        definition += ` DEFAULT NOW()`;
+                    }
+                    else {
+                        definition += ` DEFAULT ${this.formatDefaultValue(col.defaultValue)}`;
+                    }
+                }
+                if (col.references) {
+                    definition += ` REFERENCES ${col.references.table}(${col.references.column})`;
+                }
+                return definition;
+            });
+            create_sql += columnDefinitions.join(',\n');
+            create_sql += '\n);\n\n';
+            // Generate indexes
+            if (tableObj?.indexes) {
+                for (const index of tableObj.indexes) {
+                    const unique = index.unique ? 'UNIQUE ' : '';
+                    create_sql += `CREATE ${unique}INDEX ${index.name} ON ${table} (${index.columns.join(', ')});\n`;
+                }
+                create_sql += '\n';
+            }
+            if (tableObj?.relations) {
+                create_relation_sql += `-- Create relations for table: ${table}\n`;
+                for (const relation of tableObj.relations) {
+                    const cols = relation.columns.join(', ');
+                    const refCols = relation.reference.columns.join(', ');
+                    // Generate a consistent FK name
+                    const constraintName = relation.columns.length === 1
+                        ? `fk_${table}_${relation.columns[0]}`
+                        : `fk_${table}_${relation.reference.table}_composite`;
+                    create_relation_sql += `ALTER TABLE ${table} ADD CONSTRAINT ${constraintName} FOREIGN KEY (${cols}) REFERENCES ${relation.reference.table} (${refCols});\n`;
+                }
+                create_relation_sql += '\n';
+            }
+        }
+        return { create_sql, create_relation_sql };
+    }
+    static formatDefaultValue(value) {
+        if (typeof value === 'string') {
+            return `'${value.replace(/'/g, "''")}'`;
+        }
+        if (value === null) {
+            return 'NULL';
+        }
+        if (typeof value === 'boolean') {
+            return value ? 'TRUE' : 'FALSE';
+        }
+        return value.toString();
     }
 }
 exports.MigrationGenerator = MigrationGenerator;

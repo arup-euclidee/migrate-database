@@ -21,7 +21,13 @@ const schema = [
         "name": "created_at",
         "type": "TIMESTAMP",
         "nullable": false,
-        "defaultValue": "NOW()"
+        "defaultValue": "NOW"
+      },
+      {
+        "name": "updated_at",
+        "type": "TIMESTAMP",
+        "nullable": false,
+        "defaultValue": "NOW"
       }
     ],
     "indexes": [
@@ -61,7 +67,7 @@ const schema = [
         "name": "created_at",
         "type": "TIMESTAMP",
         "nullable": false,
-        "defaultValue": "NOW()"
+        "defaultValue": "NOW"
       }
     ],
     "indexes": [
@@ -83,37 +89,9 @@ const schema = [
           "columns": [
             "id"
           ]
-        }
-      }
-    ]
-  },
-  {
-    "name": "categories",
-    "columns": [
-      {
-        "name": "id",
-        "type": "SERIAL",
-        "primaryKey": true
-      },
-      {
-        "name": "name",
-        "type": "VARCHAR(255)",
-        "nullable": false
-      },
-      {
-        "name": "created_at",
-        "type": "TIMESTAMP",
-        "nullable": false,
-        "defaultValue": "NOW()"
-      }
-    ],
-    "indexes": [
-      {
-        "name": "idx_categories_name",
-        "columns": [
-          "name"
-        ],
-        "unique": true
+        },
+        "onDelete": "SET NULL",
+        "onUpdate": "CASCADE"
       }
     ]
   },

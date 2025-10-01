@@ -5,7 +5,8 @@ const schema = [
       { name: 'id', type: 'SERIAL', primaryKey: true },
       { name: 'email', type: 'VARCHAR(255)', nullable: false },
       { name: 'name', type: 'VARCHAR(255)', nullable: false },
-      { name: 'created_at', type: 'TIMESTAMP', nullable: false, defaultValue: 'NOW()' }
+      { name: 'created_at', type: 'TIMESTAMP', nullable: false, defaultValue: 'NOW' },
+      { name: 'updated_at', type: 'TIMESTAMP', nullable: false, defaultValue: 'NOW' }
     ],
     indexes: [
       { name: 'idx_users_email', columns: ['email'], unique: true }
@@ -18,26 +19,26 @@ const schema = [
       { name: 'title', type: 'VARCHAR(255)', nullable: false },
       { name: 'content', type: 'TEXT', nullable: true },
       { name: 'author_id', type: 'INT', nullable: false },
-      { name: 'created_at', type: 'TIMESTAMP', nullable: false, defaultValue: 'NOW()' }
+      { name: 'created_at', type: 'TIMESTAMP', nullable: false, defaultValue: 'NOW' }
     ],
     indexes: [
       { name: 'idx_posts_author_id', columns: ['author_id'] }
     ],
     relations: [
-      { type: 'many-to-one', columns: ['author_id'], reference: { table: 'users', columns: ['id'] } }
+      { type: 'many-to-one', columns: ['author_id'], reference: { table: 'users', columns: ['id'] }, onDelete: 'SET NULL', onUpdate: 'CASCADE' }
     ]
   },
-  {
-    name: 'categories',
-    columns: [
-      { name: 'id', type: 'SERIAL', primaryKey: true },
-      { name: 'name', type: 'VARCHAR(255)', nullable: false },
-      { name: 'created_at', type: 'TIMESTAMP', nullable: false, defaultValue: 'NOW()' }
-    ],
-    indexes: [
-      { name: 'idx_categories_name', columns: ['name'], unique: true }
-    ]
-  },
+  // {
+  //   name: 'categories',
+  //   columns: [
+  //     { name: 'id', type: 'SERIAL', primaryKey: true },
+  //     { name: 'name', type: 'VARCHAR(255)', nullable: false },
+  //     { name: 'created_at', type: 'TIMESTAMP', nullable: false, defaultValue: 'NOW' }
+  //   ],
+  //   indexes: [
+  //     { name: 'idx_categories_name', columns: ['name'], unique: true }
+  //   ]
+  // },
   {
     name: 'post_categories',
     columns: [

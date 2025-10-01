@@ -44,6 +44,7 @@ const chalk_1 = __importDefault(require("chalk"));
 const schema_parser_1 = require("../schema/schema-parser");
 const init_1 = require("../init");
 const generate_sql_1 = require("./generate-sql");
+const next_migration_file_1 = require("../utils/next-migration-file");
 async function generateMigration() {
     try {
         const schemaExists = fs.existsSync(schema_1.DEFAULT_SCHEMA_FILE);
@@ -74,19 +75,20 @@ async function generateMigration() {
         }
         // Generate migration SQL
         const sql = generate_sql_1.MigrationGenerator.generateMigrationSQL(currentSchema, previousSchema);
-        // // Ensure migration folder exists
-        // const migrationDir = path.join(DEFAULT_SCHEMA_FOLDER_PATH, "migration");
-        // if (!fs.existsSync(migrationDir)) {
-        //     fs.mkdirSync(migrationDir, { recursive: true });
-        // }
-        // // Get next migration file number
-        // const nextMigrationNumber = getNextMigrationNumber();
-        // const migrationFile = path.join(migrationDir, `${nextMigrationNumber}_migration.sql`);
-        // try {
-        //     FileUtils.writeFile(migrationFile, sql);
-        // } catch (err: any) {
-        //     throw new Error(`Failed to write migration file: ${err.message}`);
-        // }
+        // Ensure migration folder exists
+        const migrationDir = path.join(schema_1.DEFAULT_SCHEMA_FOLDER_PATH, "migration");
+        if (!fs.existsSync(migrationDir)) {
+            fs.mkdirSync(migrationDir, { recursive: true });
+        }
+        // Get next migration file number
+        const nextMigrationNumber = (0, next_migration_file_1.getNextMigrationNumber)();
+        const migrationFile = path.join(migrationDir, `${nextMigrationNumber}_migration.sql`);
+        try {
+            init_1.FileUtils.writeFile(migrationFile, sql);
+        }
+        catch (err) {
+            throw new Error(`Failed to write migration file: ${err.message}`);
+        }
         // Save snapshot of current schema for future comparisons
         try {
             const prevSchemaJson = path.join(schema_1.DEFAULT_SCHEMA_FOLDER_PATH, "generate", "previousSchema.ts");
