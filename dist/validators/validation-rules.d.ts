@@ -1,0 +1,10 @@
+export declare const NAME_PATTERN: RegExp;
+export declare const RESERVED_KEYWORDS: readonly ["USER", "TABLE", "DATABASE", "SCHEMA", "COLUMN", "INDEX", "PRIMARY", "FOREIGN", "KEY", "SELECT", "INSERT", "UPDATE", "DELETE", "DROP", "CREATE", "ALTER", "REFERENCES", "CONSTRAINT"];
+export declare const ALLOWED_TYPES: readonly ["SERIAL", "BIGSERIAL", "INT", "BIGINT", "SMALLINT", "INTEGER", "VARCHAR", "CHAR", "TEXT", "UUID", "BOOLEAN", "BOOL", "DECIMAL", "NUMERIC", "REAL", "DOUBLE PRECISION", "TIMESTAMP", "TIMESTAMPTZ", "DATE", "TIME", "INTERVAL", "JSON", "JSONB", "BYTEA"];
+export declare const NO_DEFAULT_FOR_PK: readonly ["SERIAL", "BIGSERIAL"];
+export declare const REQUIRES_LENGTH: readonly ["VARCHAR", "CHAR"];
+export declare const TYPE_DEFAULT_COMPATIBILITY: Record<string, readonly string[]>;
+export declare const VALID_RELATION_TYPES: readonly ["one-to-one", "one-to-many", "many-to-one", "many-to-many"];
+export declare const VALID_ACTIONS: readonly ["CASCADE", "SET NULL", "SET DEFAULT", "RESTRICT", "NO ACTION"];
+export declare const VALID_CONSTRAINT_TYPES: readonly ["UNIQUE", "CHECK", "FOREIGN KEY", "PRIMARY KEY"];
+export declare const TYPE_COMPATIBILITY: Record<string, readonly string[]>;

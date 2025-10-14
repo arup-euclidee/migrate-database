@@ -18,7 +18,7 @@ class MigrationGenerator {
             if (record?.removedTables?.length > 0) {
                 // Option 1: One DROP TABLE per table
                 record?.removedTables.forEach(t => {
-                    sql += `DROP TABLE IF EXISTS "${t}" CASCADE;\n`;
+                    sql += `DROP TABLE IF EXISTS "${t}";\n`;
                 });
             }
             // create tables
@@ -47,30 +47,6 @@ class MigrationGenerator {
         // Existing: in both
         const existingCommonTables = existingTables.filter(t => currentSet.has(t)) || [];
         return { removedTables, newTables, existingCommonTables };
-    }
-    static compareColumns(oldTable, newTable) {
-        const steps = [];
-        const oldColumns = new Map(oldTable.columns.map(c => [c.name, c]));
-        const newColumns = new Map(newTable.columns.map(c => [c.name, c]));
-        // Check for new columns
-        for (const [columnName, newColumn] of newColumns) {
-            if (!oldColumns.has(columnName)) {
-                steps.push({ type: 'add_column', table: oldTable.name, column: columnName, definition: newColumn });
-            }
-        }
-        // Check for dropped columns
-        for (const [columnName, oldColumn] of oldColumns) {
-            if (!newColumns.has(columnName)) {
-                steps.push({ type: 'drop_column', table: oldTable.name, column: columnName });
-            }
-        }
-        // Check for modified columns
-        for (const [columnName, newColumn] of newColumns) {
-            const oldColumn = oldColumns.get(columnName);
-            if (oldColumn && JSON.stringify(oldColumn) !== JSON.stringify(newColumn)) {
-                steps.push({ type: 'modify_column', table: oldTable.name, column: columnName, definition: newColumn });
-            }
-        }
     }
     static generateCreateTableSQL(tables, currentSchema) {
         let create_sql = '';

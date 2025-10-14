@@ -28,17 +28,6 @@ const schema = [
       { type: 'many-to-one', columns: ['author_id'], reference: { table: 'users', columns: ['id'] }, onDelete: 'SET NULL', onUpdate: 'CASCADE' }
     ]
   },
-  // {
-  //   name: 'categories',
-  //   columns: [
-  //     { name: 'id', type: 'SERIAL', primaryKey: true },
-  //     { name: 'name', type: 'VARCHAR(255)', nullable: false },
-  //     { name: 'created_at', type: 'TIMESTAMP', nullable: false, defaultValue: 'NOW' }
-  //   ],
-  //   indexes: [
-  //     { name: 'idx_categories_name', columns: ['name'], unique: true }
-  //   ]
-  // },
   {
     name: 'post_categories',
     columns: [
@@ -55,11 +44,11 @@ const schema = [
     ],
     constraints: [
       { type: 'unique', name: 'uniq_post_category', columns: ['post_id', 'category_id'] }
-      // If you want a composite primary key instead of unique, replace with:
-      // { type: 'primary', name: 'pk_post_category', columns: ['post_id', 'category_id'] }
     ]
   }
 ]
 
 
 export default schema
+
+
